@@ -1,7 +1,7 @@
 import json
 import os
 import uuid
-import aiohttp
+import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
@@ -38,7 +38,6 @@ def kullanici_verisi(user_id):
 
 # ============== AI FONKSİYONU (Anthropic) ==============
 async def ai_cevap(messages):
-    # Anthropic API'de mesajlar user/assistant rolünde olmalı
     ai_messages = [m for m in messages if m["role"] in ("user", "assistant")]
 
     headers = {
@@ -52,14 +51,13 @@ async def ai_cevap(messages):
         "system": "Sen yardımcı bir asistansın. Türkçe cevap ver.",
         "messages": ai_messages
     }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(AI_API_URL, headers=headers, json=payload) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                return result["content"][0]["text"]
-            else:
-                error_text = await resp.text()
-                return f"❌ AI hatası (Kod {resp.status}): {error_text}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(AI_API_URL, headers=headers, json=payload, timeout=60)
+        if resp.status_code == 200:
+            result = resp.json()
+            return result["content"][0]["text"]
+        else:
+            return f"❌ AI hatası (Kod {resp.status_code}): {resp.text}"
 
 
 # ============== KOMUTLAR ==============
