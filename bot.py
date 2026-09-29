@@ -8,8 +8,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 # ============== AYARLAR ==============
 BOT_TOKEN = "8990954740:AAHBTlF6hKOSVub59dh3KjjywGvpN5c-J6s"
 API_KEY = "ak_WL9qgJQrxJZe9YT_FUYzNJeOkfS0KnknOlAnLXfKOfs"
-AI_API_URL = "https://api.anthropic.com/v1/messages"
-AI_MODEL = "claude-sonnet-4-5"
+AI_API_URL = "https://api.abliteration.ai/v1/chat/completions"
+AI_MODEL = "model-adi-buraya"  # ⚠️ Console > Playground'daki model adını buraya yaz!
 DATA_FILE = "sohbetler.json"
 # =====================================
 
@@ -36,26 +36,27 @@ def kullanici_verisi(user_id):
 # ============================================
 
 
-# ============== AI FONKSİYONU (Anthropic) ==============
+# ============== AI FONKSİYONU (Abliteration) ==============
 async def ai_cevap(messages):
     ai_messages = [m for m in messages if m["role"] in ("user", "assistant")]
 
+    # System mesajını başa ekle (OpenAI formatı)
+    full_messages = [{"role": "system", "content": "Sen yardımcı bir asistansın. Türkçe cevap ver."}] + ai_messages
+
     headers = {
-        "x-api-key": API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
     }
     payload = {
         "model": AI_MODEL,
         "max_tokens": 4000,
-        "system": "Sen yardımcı bir asistansın. Türkçe cevap ver.",
-        "messages": ai_messages
+        "messages": full_messages
     }
     async with httpx.AsyncClient() as client:
-        resp = await client.post(AI_API_URL, headers=headers, json=payload, timeout=60)
+        resp = await client.post(AI_API_URL, headers=headers, json=payload, timeout=120)
         if resp.status_code == 200:
             result = resp.json()
-            return result["content"][0]["text"]
+            return result["choices"][0]["message"]["content"]
         else:
             return f"❌ AI hatası (Kod {resp.status_code}): {resp.text}"
 
@@ -143,7 +144,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _, chat_id, action = query.data.split(":")
 
     if action == "sil":
-        data, user_data = kullanici_verisi(query.from_user.id)
+        data, user_data = kullanici_verisi(query.from_id)
         if chat_id in user_data:
             sohbet_adi = user_data[chat_id]["isim"]
             del user_data[chat_id]
